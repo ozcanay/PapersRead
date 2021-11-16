@@ -1,1 +1,35 @@
-qweqweqwe
+Talks about control-flow hijacking. Defense mechanism developed for hijacking. Some of mechanism include:
+
+- Stack canaries
+- Non-executable memory
+- ASLR (Addres Space Layout Randomization)
+
+In this paper, limitations of kernel space ASLR against a *local* attacker with restricted privileges is studied. It is shown in the paper that it is possible for an local adversary to implement a generic side channel attack against the memory management system to deduce info about about the privileged address space layout.
+
+--> Q) What is a side channel?
+
+
+Their approach is based on the property that the different caches are *shared* resources on computers.
+
+Key idea behind ASLR is that it randomizes system's virtual memory layout either every time a new code execution starts (e.g., upon process creation or when a driver is loaded.) or on each reboot. Initial purpose was to randomize user mode processes. Modern OSes randomize *both* user and kernel space. Thanks to ASLR, advanced exploitation techniques like return-to-libc and return-oriented programming (ROP) are prevented since an adversary does not know virtual address of memory locations to which he can divert control flow.
+
+An attacker might attempt to perform a brute-force attack on ASLR systems. User mode ASLR on 32-bit architectures only leaves for 16 bit of randomness, which is not enough to defeat brute-force attacks. However, same attacks on kernel mode ASLR are not practical on 32-bit architectures: If an attacker wants to exploit a vulnerability in kernel code, a wrong offset will typically lead to system crash and thus attacker has only 1 attempt to perform an exploit, which is not feasible in practice, so we are fine.
+
+Together with DEP, a technique that enforces Writable XOR Executable property of memory pages, ASLR greatly reduces the attack surface.
+
+***
+Sidenote: Data Execution Prevention (DEP) is a system-level memory protection feature that is built into the operating system. DEP enables the system to mark one or more pages of memory as non-executable.
+***
+
+This paper introduces a generic attack for systems running on the Intel ISA. More specifically, the paper shows how a local attacker with restricted rights can mount a timing-based side channel attack against the memory management system to deduce info about the privileged address space layout. They took advantage of the fact that the memory hierarchy present in computers lead to shared resources between user and kernel space code that can be abused to construct a side channel. In practice, timing attacks against a modern CPU are very complicated due to the many performance optimizations used by current processors such as HW prefetching, speculative execution, multi-core architectures, or branch prediction that significantly complicate timing measurements.
+
+--> Q) What is speculative execution?
+
+In summary, contributions of this papers are the following:
+
+1) An attack to derandomize kernel space ASLR that relies on a side channel based on the memory hierarchy present in computers, which leads to timing differences when accessing specific memory regions.
+2) Three different approaches are presented to implement the attack. 
+***As part of the implementation, an undocumented hash function used in Intel Sandybridge CPUs is reverse-engineered to distribute the cache among different cores.***
+3) Several mitigation strategies that defeats the presented attack are discussed.
+
+
