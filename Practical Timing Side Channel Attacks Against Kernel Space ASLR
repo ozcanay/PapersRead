@@ -32,4 +32,40 @@ In summary, contributions of this papers are the following:
 ***As part of the implementation, an undocumented hash function used in Intel Sandybridge CPUs is reverse-engineered to distribute the cache among different cores.***
 3) Several mitigation strategies that defeats the presented attack are discussed.
 
+===
+Technical background: 
+
+ASLR:
+
+It randomizes the *base* address of important memory structures such as code, stack and heap. Consequently, an adversary does not know the virtual address of relevant memory locations needed to perform a control-flow hijacking attack (i.e., location of shellcode or ROP gadgets).
+
+--> Q) What are shellcode and ROP gadgets?
+
+Note that since a user mode app has no means to *directly* access the kernel space, it cannot determine the base addresses the kernel modules are loaded to: every attempt to access kernel space memory from user mode results in an access violation, and thus kernel space ASLR effectively hampers local exploits against the OS kernel or drivers.
+
+
+Memory Hierarchy:
+
+Modern hierarchies range from *a few* very fast CPU registers over different levels of cache to a huge and rather slow main memory (RAM). Paper focuses on different caches that are used to speed up address translation and memory accesses for code and data. Typically, each CPU core containes 1 dedicated L1 and L2 cache and often there is an additional shared L3 cache (also called last level cache, LLC). L1 cache is split into data and instruction caches named ICACHE and DCACHE. On higher stages, unified caches are used, meaning that data and cache is not separated from each other. The efficieny of cache usage is justified by the temporal and spatial locality property of memory accesses. Hence, not only single bytes of are cached, but always a chunk of adjacent memory.
+
+All described caches operate in an n-way set associative mode. Here, all available slots are grouped into sets of size n and each memory chunk can be stored in all slots of one *particular* set. This target set is determined by a bunch of cache index bits that are taken from the memory address.
+
+As an example, consider 32-bit address and a typical L3 cache of 8 MB that is 16-way set associative. 
+Remember that cache line is of size 64 *bytes* on most systems.
+
+8MB = 8*1024*1024 = 8388608 bytes. 
+8388608/64 = 131072 slots.
+
+There are 131072 single slots that are *grouped into* 131072/16=8192 different sets. Hence, log2(8192)=13 bits from a virtual address are needed to select the appropriate set. Since the lower 6 bits of each address are used to select on particular bytes from each cache line (log2(64)=6), the bits 18 to 6 determine the set. The remaining upper 13 bits form the *address tag*, that has to be *stored with each cache line* for the later lookup. (6+13+13=32 bits in total to represent a virtual address in 32-bit system.)
+
+One important consequence of set associativity is that memory addresses with *identical* index bits compete against the available slots of one set (Addresses do not have any specific slot!). Hence, memory accesses may evict and replace other memory contents from the caches.  A common replacement strategy is "Least Recently Used (LRU)", in which the entry which has not been accessed for the longest time is replaced. Since the managing real timestamps is not affordable in practice, the variant "Pseudo-LRU" is used: an additional reference bit is stored with each cache line that is set on each access. 
+
+****Once all reference bits of a set are enabled, they are all cleared again. If an entry from a set has to be removed, an arbitrary one with a cleared reference bit is chosen.****
+
+
+Virtual Memory and Address Translation:
+
+Modern OSes usually work on *paged virtual memory* instead of physical memory. The memory space is divided into equally sized pages that are either regular pages (e.g., with a size of 4 KB), or large pages (e.g., 2 or 4 MB (btw, this is probably not true nowadays)). When accesssing memory via virtual addresses (VA), they first have to be translated into physical addresses (PA) by the processor's "Memory Management Unit (MMU)" in a *page walk*: the *virtual* address is split into several parts and each part operates as an array index for certain levels of *page tables.* The lowest level of the involved *paging structures (PS)*, the *Page Table Entry (PTE)* contains the resulting physical *frame number.* For large pages, 1 level less of PS is needed since a larger space of memory requires less bits to address.
+
+===
 
