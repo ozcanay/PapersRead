@@ -65,7 +65,27 @@ One important consequence of set associativity is that memory addresses with *id
 
 Virtual Memory and Address Translation:
 
-Modern OSes usually work on *paged virtual memory* instead of physical memory. The memory space is divided into equally sized pages that are either regular pages (e.g., with a size of 4 KB), or large pages (e.g., 2 or 4 MB (btw, this is probably not true nowadays)). When accesssing memory via virtual addresses (VA), they first have to be translated into physical addresses (PA) by the processor's "Memory Management Unit (MMU)" in a *page walk*: the *virtual* address is split into several parts and each part operates as an array index for certain levels of *page tables.* The lowest level of the involved *paging structures (PS)*, the *Page Table Entry (PTE)* contains the resulting physical *frame number.* For large pages, 1 level less of PS is needed since a larger space of memory requires less bits to address.
+Modern OSes usually work on *paged virtual memory* instead of physical memory. The memory space is divided into equally sized pages that are either regular pages (e.g., with a size of 4 KB), or large pages (e.g., 2 or 4 MB (btw, this is probably not true nowadays)). When accesssing memory via virtual addresses (VA), they first have to be translated into physical addresses (PA) by the processor's "Memory Management Unit (MMU)" in a *page walk*: the *virtual* address is split into several parts and each part operates as an array index for certain levels of *page tables.* The lowest level of the involved *paging structures (PS)*, the *Page Table Entry (PTE)* contains the resulting physical *frame number.* For large pages, 1 level less of PS is needed since a larger space of memory requires less bits to address. PAPERS FURTHER EXPLAINS DETAILS HERE.
 
+In order to speed up this address translation process, resolved address mappings are cached in Translation Lookaside Buffers (TLBs). Additionally there often are dedicated caches for the involved higher level Paging Structure (PS). Current x86/x64 systems usually have two different levels of TLB: the first stage TLB0 is split into one for data (DTLB) and another for instructions (ITLB), and second stage TLB1 is used for both. 
+
+TLB --> TLB0 --> DTLB
+             --> ITLB 
+             
+    --> TLB1 --> Unified TLB used both for data and instructions.
+
+
+
+Virtual address translation related caches --> TLB
+                                           --> PS cache
+
+
+
+Even with TLB and PS caches, the address translation takes some clock cycles, during which the resulting physical address is not available yet. As an effect, the system has to wait for the address translation *before* it can check the tag values of the caches. Therefore, lower caches are ***virtually indexed but physically tagged. This means that the cache index is taken from the virtual address but the stored tag values are taken from the physical address.*** 
+
+Note that PS are not only cached in the TLB or PML4/PDP/PDE caches, but may also reside as regular data within the DCACHE or higher level *unified* caches.
+
+An essential part of virtual memory system is the page fault handler (PFH). It is invoked if a virtual address cannot be resolved, i.e., the page walk encounters invalid PS. This may happen for several reasons: addressed memory region may been swapped out to disk, ***or the memory is accessed for the first time after its allocation. Although page fault happens transparently, the process induces a slight time delay. Besides translation info, PS also contains several protection flags. These flags can mark memory as non-executable or can restrict access to privileged code only. After a successful translation, these flags are checked against the current system state and in case of protection violation, the PFH is invoked.
 ===
 
+Side channels emerge from intricacies of the underlying HW and the fact that parts of the HW like caches and physical memory are shared between both privilaged and non-privileged code.
