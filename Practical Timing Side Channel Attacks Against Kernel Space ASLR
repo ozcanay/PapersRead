@@ -86,6 +86,18 @@ Even with TLB and PS caches, the address translation takes some clock cycles, du
 Note that PS are not only cached in the TLB or PML4/PDP/PDE caches, but may also reside as regular data within the DCACHE or higher level *unified* caches.
 
 An essential part of virtual memory system is the page fault handler (PFH). It is invoked if a virtual address cannot be resolved, i.e., the page walk encounters invalid PS. This may happen for several reasons: addressed memory region may been swapped out to disk, ***or the memory is accessed for the first time after its allocation. Although page fault happens transparently, the process induces a slight time delay. Besides translation info, PS also contains several protection flags. These flags can mark memory as non-executable or can restrict access to privileged code only. After a successful translation, these flags are checked against the current system state and in case of protection violation, the PFH is invoked.
+
+Entire virtual address space is divided in both user and kernel space. So, attacker might attempt to directly jump to a user space address from within kernel mode in an exploit, thus circumventing any kernel space ASLR protections. However, this is not always possible since the correct user space might not be mapped at the time of the exploit. Furthermore, this kind of attack is rendered impossible with the introduction of the Supervisor Mode Execution Protection (SMEP) feature of modern CPUs ***that disables execution of user space addresses in kernel mode.***
+
+Paper shows that even in the absence of any kernel information leak, they can still de-randomize kernel space ASLR.
+
+Q) --> What is "enforcing W XOR R" property?
+
+Operating system's system call handler is present in CPU caches while executing a syscall.
+
+An attacker can (to a certain degree) control which code or data regions are accessed in kernel mode **by forcing fixed execution paths and known data access patterns in the kernel.** For example, user mode code can perform a system call (sysenter, sysenter is a i586 instruction, specifically tight to 32-bits applications. It has been subsumed by syscall on 64-bits plateforms. --> https://reverseengineering.stackexchange.com/questions/2869/how-to-use-sysenter-under-linux) or an interrupt. 
+
+***This will force the CPU to cache the associated handler code and data structures (e.g., IDT table, Interrupt Descriptor Table --> The Interrupt Descriptor Table (IDT) is a data structure used by the x86 architecture to implement an interrupt vector table. The IDT is used by the processor to determine the correct response to interrupts and exceptions.) as well as data accessed by the handler code (e.g., system call table).
 ===
 
 Side channels emerge from intricacies of the underlying HW and the fact that parts of the HW like caches and physical memory are shared between both privilaged and non-privileged code.
