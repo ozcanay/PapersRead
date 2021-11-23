@@ -124,8 +124,21 @@ Reverse engineering approach to find out mapping:
 
 Authors are using Sandybridge microarchitecture. CPU has an 8MB L3 cache and 4 cores, resulting in 2MB L3 slices each. Hence, the hash function has to decide between 4 different slices (i.e., resulting in 2 output *bits*). Since their testing HW had 4 GB of physical memory, they have reconstructed the hash function for an input of 32 bits. In case of larger physical memory, the same method can be applied to reserve the influence of the upper bits as well.
 
-Authors started with a resonable assumption that L3 cachelines on this CPU still consists of 64 bytes. Hence, the lowest 6 bits of each address operate as an offset and, therefore, do not contribute as input to the hash function. O(n<sup>2</sup>)
+Authors started with a resonable assumption that L3 cachelines on this CPU still consists of 64 bytes. Hence, the lowest 6 bits of each address operate as an offset and, therefore, do not contribute as input to the hash function.
+
+In order to learn the relationship between the physical addresses and the resulting cache slices, they took an *arbitrary* memory location and an additional eviction buffer (in user space) of 8 MB (Why 8???) and tried to determine the colliding addresses within (here, "colliding" means those which are mapped to the same *cacheset of the same cache slice*). 
+
+Since the ***L3 cache operates on physical addresses***, the eviction buffer had to be contiguous (why???) Therefore, authors used their own custom driver for this experiment(what is this supposed to mean?)
+
+Performance optimization featyres of modern CPUs like HW prefetcing, speculative execution, and branch prediction make it impossible to directly identify  single colliding addresses. Therefore, authors performed a 2-step experiment:
+
+1) they identified eviction buffer *regions* of adjacent memory addresses that collide with the probe address.
+2) they located the particular colliding addresses within these regions. (So, they narrowed the region down going from step 1 to 2)
+
+They performed these test several *hundred* times. As a result of *each* single test, they got a tuple of form (p, CA={ca(1), ca(2), ...} ) whereas p is the used probe address and each ca(i) is a colliding address from our eviction buffer. By manually comparing those tuples (p, CA) and (p', CA') with a ***hamming distance of 1 between p and p'***, they were able to learn the influence of particular bits on the colliding addresses from CA and CA'. 
+
+In the end, they were able to fully reconstruct the hashing function that decides which cache slice is used for a given (virtual) address. It turned out that only the bits 31 to 17 are considered as input variables. Each cache slice operates as a separate smaller 2 MB cache (WHY?), whereas the address bits 16 to 6 constitute as the ***cache index*** since 11 bits are necessary to address all sets of such 2 MB cache (log2(2048)=11) ---> WHY???. Remember that bits 0 to 5 were being used as offset in cache line.
 
 ===
 
-Side channels emerge from intricacies of the underlying HW and the fact that parts of the HW like caches and physical memory are shared between both privilaged and non-privileged code.
+Side channels emerge from intricacies of the underlying HW and the fact that parts of the HW like caches and physical memory are shared between both privileged and non-privileged code.
