@@ -139,6 +139,7 @@ They performed these test several *hundred* times. As a result of *each* single 
 
 In the end, they were able to fully reconstruct the hashing function that decides which cache slice is used for a given (virtual) address. It turned out that only the bits 31 to 17 are considered as input variables. Each cache slice operates as a separate smaller 2 MB cache (WHY?), whereas the address bits 16 to 6 constitute as the ***cache index*** since 11 bits are necessary to address all sets of such 2 MB cache (log2(2048)=11) ---> WHY???. Remember that bits 0 to 5 were being used as offset in cache line.
 
+TO BE CONTINUED: WHERE I LEFT AT: 2) EVALUATION RESULTS
 ===
 
 Side channels emerge from intricacies of the underlying HW and the fact that parts of the HW like caches and physical memory are shared between both privileged and non-privileged code.
