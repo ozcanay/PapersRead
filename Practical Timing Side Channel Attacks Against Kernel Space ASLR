@@ -98,6 +98,34 @@ Operating system's system call handler is present in CPU caches while executing 
 An attacker can (to a certain degree) control which code or data regions are accessed in kernel mode **by forcing fixed execution paths and known data access patterns in the kernel.** For example, user mode code can perform a system call (sysenter, sysenter is a i586 instruction, specifically tight to 32-bits applications. It has been subsumed by syscall on 64-bits plateforms. --> https://reverseengineering.stackexchange.com/questions/2869/how-to-use-sysenter-under-linux) or an interrupt. 
 
 ***This will force the CPU to cache the associated handler code and data structures (e.g., IDT table, Interrupt Descriptor Table --> The Interrupt Descriptor Table (IDT) is a data structure used by the x86 architecture to implement an interrupt vector table. The IDT is used by the processor to determine the correct response to interrupts and exceptions.) as well as data accessed by the handler code (e.g., system call table).
+
+Note that x86/x64 instruction set also contains a number of instructions for explicit cache control like ***invlpg, invd/wbinvd, clflush, or prefetch.*** However, these instructions are either privileged and thus cannot be called from user mode, or they **cannot be used with kernel space addresses from user mode**. Hence, none of these addresses can be used for our purposes. As a result, paper relied on some *indirect* methods.
+
+HW prefetching, speculative execution, multi-core architectures, branch predictions can cause noise between benchmarks. In the paper, authors adapted their measuring code to take the effects of these optimizations into account. For example, they did not test the memory in *consecutive (virtually ofc)* order to avoid being influenced by memory prefetching. Instead, they used access patterns that are not influenced by these mechanism at all (Q) --> how can they make sure that they are not affected at all??)
+
+Furthermore, they had to deal with the fact that their tool is not the only running process and there may be a high CPU load in the observed system. The thread scheduler of the underlying OS periodically and, if required, also preemptively interrupts our code and switches the execution context. If we are further running inside a VM, there is ***even more context switching*** when a transition between the VM monitor and the VM (or between different VMs)  takes place. Finally, even if you may have multiple VMs, since all executed code is operating on the same HW, also the caches have to be shared to some extent.
+
+Their approach: 
+
+1) Set the system into a specific state. 
+2) Measure the duration of a certain memory access operation. 
+
+They probed entire memory for their test. Even in the worst case, above mentioned 2 steps take 5000 clock cycles. ****Since modern OSes have time slices of at least several miliseconds, it is highly unlikely that the scheduler interferes with their measurements.****
+
+There is a section in the paper where they explain their attack implementations. The goal of each attack is to precisely locate some of the currently loaded kernel modules from user mode ***by measuring the time needed for certain memory accesses. *****Note that the attacker can already perform a ROP-based attack once he has de-randomized the location of a few kernel modules or the kernel.*****
+
+
+In general, even if the physical address of the searched kernel location is known, this offers no knowledge about its corresponding virtual address.
+
+
+Cache probing with the latest Intel CPUs is significantly harder, even if the attacker has a contigious region of memory for which all corresponding physical addresses are known. These processor employ a distributed last level cache that is split into equally sized cache slices and each of them is dedicated to one CPU core. ***This approach increases the access BW, since several L3 cache access can be performed in parallel. In order to uniformly distribute the accesses to all different cache slices, a hash function is used that is not publicly documented. The authors thus had to reconstruct this hash function in a black-box manner before cache probing can be performed, since otherwise it is unknown which **physical** addresses mapped to which cache location.
+
+Reverse engineering approach to find out mapping:
+
+Authors are using Sandybridge microarchitecture. CPU has an 8MB L3 cache and 4 cores, resulting in 2MB L3 slices each. Hence, the hash function has to decide between 4 different slices (i.e., resulting in 2 output *bits*). Since their testing HW had 4 GB of physical memory, they have reconstructed the hash function for an input of 32 bits. In case of larger physical memory, the same method can be applied to reserve the influence of the upper bits as well.
+
+Authors started with a resonable assumption that L3 cachelines on this CPU still consists of 64 bytes. Hence, the lowest 6 bits of each address operate as an offset and, therefore, do not contribute as input to the hash function. O(n<sup>2</sup>)
+
 ===
 
 Side channels emerge from intricacies of the underlying HW and the fact that parts of the HW like caches and physical memory are shared between both privilaged and non-privileged code.
