@@ -1,0 +1,4 @@
+https://stackoverflow.com/questions/2440385/how-to-find-the-physical-address-of-a-variable-from-user-space-in-linux
+
+Not every virtual address has a physical address, they may belong to mapped files or swapped pages.
+
